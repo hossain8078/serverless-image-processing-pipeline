@@ -1,0 +1,2 @@
+# Pillow is provided by the PillowLayer (layers/pillow).
+# boto3 is included in the AWS Lambda Python runtime.

@@ -1,0 +1,181 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Serverless Image Processing Pipeline - S3 + Lambda (Pillow) + Step Functions
+  + API Gateway. Uploading an image to the originals bucket (or calling the API)
+  starts a state machine that writes a thumbnail to the resized bucket.
+
+Parameters:
+  ThumbnailSize:
+    Type: Number
+    Default: 128
+    MinValue: 16
+    MaxValue: 1024
+    Description: Maximum width/height of the thumbnail, in pixels.
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Architectures:
+      - x86_64
+    Timeout: 30
+    MemorySize: 512
+    Tracing: Active
+
+Resources:
+  # ---------------------------------------------------------------- S3
+  OriginalsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-originals-${AWS::AccountId}"
+      # Sends "Object Created" events to EventBridge, which starts the workflow.
+      NotificationConfiguration:
+        EventBridgeConfiguration:
+          EventBridgeEnabled: true
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  ResizedBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-resized-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  # ---------------------------------------------------------------- Lambda
+  PillowLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub "${AWS::StackName}-pillow"
+      Description: Pillow imaging library for Python 3.12
+      ContentUri: layers/pillow/
+      CompatibleRuntimes:
+        - python3.12
+      RetentionPolicy: Delete
+    Metadata:
+      BuildMethod: python3.12
+
+  ResizeImageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-resize-image"
+      Description: Resizes an image from the originals bucket into a thumbnail.
+      CodeUri: src/resize_image/
+      Handler: app.lambda_handler
+      Layers:
+        - !Ref PillowLayer
+      Environment:
+        Variables:
+          SOURCE_BUCKET: !Ref OriginalsBucket
+          DESTINATION_BUCKET: !Ref ResizedBucket
+          THUMBNAIL_SIZE: !Ref ThumbnailSize
+          THUMBNAIL_PREFIX: thumbnails/
+          LOG_LEVEL: INFO
+      Policies:
+        # Least privilege: read originals, write thumbnails.
+        - S3ReadPolicy:
+            BucketName: !Ref OriginalsBucket
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+              Resource: !Sub "arn:aws:s3:::${ResizedBucket}/*"
+
+  ResizeImageFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${ResizeImageFunction}"
+      RetentionInDays: 14
+
+  # ---------------------------------------------------------- Step Functions
+  StateMachineLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/vendedlogs/states/${AWS::StackName}-image-processing"
+      RetentionInDays: 14
+
+  ImageProcessingStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Name: !Sub "${AWS::StackName}-image-processing"
+      Type: STANDARD
+      DefinitionUri: statemachine/image_processing.asl.json
+      DefinitionSubstitutions:
+        ResizeFunctionArn: !GetAtt ResizeImageFunction.Arn
+      Tracing:
+        Enabled: true
+      Logging:
+        Level: ALL
+        IncludeExecutionData: true
+        Destinations:
+          - CloudWatchLogsLogGroup:
+              LogGroupArn: !GetAtt StateMachineLogGroup.Arn
+      Policies:
+        - LambdaInvokePolicy:
+            FunctionName: !Ref ResizeImageFunction
+        - Statement:
+            # Required for Step Functions to deliver logs to CloudWatch.
+            - Effect: Allow
+              Action:
+                - logs:CreateLogDelivery
+                - logs:GetLogDelivery
+                - logs:UpdateLogDelivery
+                - logs:DeleteLogDelivery
+                - logs:ListLogDeliveries
+                - logs:PutResourcePolicy
+                - logs:DescribeResourcePolicies
+                - logs:DescribeLogGroups
+              Resource: "*"
+      Events:
+        # API Gateway endpoint: POST /resize  {"key": "photo.jpg"}
+        # SAM creates a REST API whose integration calls states:StartExecution
+        # and passes the request body as the execution input.
+        ApiTrigger:
+          Type: Api
+          Properties:
+            Path: /resize
+            Method: post
+        # Automatic trigger: a new object in the originals bucket.
+        S3Upload:
+          Type: EventBridgeRule
+          Properties:
+            Pattern:
+              source:
+                - aws.s3
+              detail-type:
+                - Object Created
+              detail:
+                bucket:
+                  name:
+                    - !Ref OriginalsBucket
+
+Outputs:
+  OriginalsBucketName:
+    Description: Upload original images here.
+    Value: !Ref OriginalsBucket
+  ResizedBucketName:
+    Description: Thumbnails are written here (under thumbnails/).
+    Value: !Ref ResizedBucket
+  ResizeImageFunctionName:
+    Description: Image resize Lambda function.
+    Value: !Ref ResizeImageFunction
+  StateMachineArn:
+    Description: Image processing Step Functions state machine.
+    Value: !Ref ImageProcessingStateMachine
+  ResizeApiUrl:
+    Description: POST a JSON body like {"key":"photo.jpg"} to start the workflow.
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/resize"

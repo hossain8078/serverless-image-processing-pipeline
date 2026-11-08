@@ -1,0 +1,25 @@
+# AWS SAM
+.aws-sam/
+samconfig.toml.bak
+packaged.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+env/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local secrets
+.env
+*.pem

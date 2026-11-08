@@ -1,0 +1,9 @@
+{
+  "version": "0",
+  "detail-type": "Object Created",
+  "source": "aws.s3",
+  "detail": {
+    "bucket": { "name": "REPLACE_WITH_ORIGINALS_BUCKET" },
+    "object": { "key": "sample.jpg", "size": 120000 }
+  }
+}

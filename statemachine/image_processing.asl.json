@@ -1,0 +1,71 @@
+{
+  "Comment": "Serverless image processing pipeline: resize an uploaded image to a thumbnail, then report success or failure.",
+  "StartAt": "ResizeImage",
+  "States": {
+    "ResizeImage": {
+      "Type": "Task",
+      "Comment": "Invoke the image resize Lambda function.",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${ResizeFunctionArn}",
+        "Payload.$": "$"
+      },
+      "OutputPath": "$.Payload",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "RecordUnexpectedError"
+        }
+      ],
+      "Next": "WasResizeSuccessful"
+    },
+    "RecordUnexpectedError": {
+      "Type": "Pass",
+      "Comment": "Turn an unhandled error (timeout, crash) into the same result shape the Lambda returns.",
+      "Parameters": {
+        "status": "FAILED",
+        "error.$": "$.error.Error",
+        "cause.$": "$.error.Cause"
+      },
+      "Next": "WasResizeSuccessful"
+    },
+    "WasResizeSuccessful": {
+      "Type": "Choice",
+      "Comment": "Check whether the image resizing was successful.",
+      "Choices": [
+        {
+          "And": [
+            { "Variable": "$.status", "IsPresent": true },
+            { "Variable": "$.status", "StringEquals": "SUCCEEDED" }
+          ],
+          "Next": "ResizeSucceeded"
+        }
+      ],
+      "Default": "ResizeFailed"
+    },
+    "ResizeSucceeded": {
+      "Type": "Succeed",
+      "Comment": "Thumbnail was written to the resized-images bucket."
+    },
+    "ResizeFailed": {
+      "Type": "Fail",
+      "Comment": "Image could not be resized. See the execution history and Lambda logs in CloudWatch.",
+      "Error": "ImageResizeFailed",
+      "Cause": "The image could not be resized. Check the execution input/output and the Lambda CloudWatch logs."
+    }
+  }
+}
