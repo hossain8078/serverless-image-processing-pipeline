@@ -6,7 +6,8 @@ When an image lands in the **originals** S3 bucket, or a client calls the **API 
 
 > **Capstone Project:** Cloud Computing, Saskatchewan Polytechnic (Business Information Systems)<br>
 > **Author:** Md Alamgir Hossain<br>
-> **Demo video:** [Watch on YouTube](https://www.youtube.com/watch?v=mnUfHY-X5wI)
+> **Demo video:** [Watch on YouTube](https://www.youtube.com/watch?v=mnUfHY-X5wI)<br>
+> **User manual:** [Step-by-step guide with screenshots (PDF)](docs/User_Manual.pdf)
 
 ---
 
@@ -112,7 +113,7 @@ Plain-text version (from the assignment brief):
 │   ├── test_pipeline.ps1             # End-to-end test (Windows PowerShell)
 │   └── test_pipeline.sh              # End-to-end test (macOS / Linux)
 ├── samples/sample.jpg                # Test image (1600x1200)
-└── docs/                             # Screenshots for the README
+└── docs/                             # Diagrams, screenshots, test results and the user manual (PDF)
 ```
 
 ---
