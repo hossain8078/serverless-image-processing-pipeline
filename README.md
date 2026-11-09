@@ -4,8 +4,8 @@ A serverless AWS application that automatically turns uploaded images into thumb
 
 When an image lands in the **originals** S3 bucket, or a client calls the **API Gateway** endpoint, an **AWS Step Functions** state machine invokes a **Lambda** function. The function resizes the image with **Pillow** and saves the thumbnail in a second **resized** S3 bucket. **CloudWatch** keeps the logs and execution history.
 
-> Capstone Project: Cloud Computing, Saskatchewan Polytechnic (Business Information Systems)
-> Author: Md Alamgir Hossain
+> **Capstone Project:** Cloud Computing, Saskatchewan Polytechnic (Business Information Systems)<br>
+> **Author:** Md Alamgir Hossain
 
 ---
 
@@ -17,11 +17,12 @@ When an image lands in the **originals** S3 bucket, or a client calls the **API 
 4. [Prerequisites](#prerequisites)
 5. [Deploy](#deploy)
 6. [Test the application](#test-the-application)
-7. [Run the unit tests](#run-the-unit-tests)
-8. [Configuration](#configuration)
-9. [Monitoring and troubleshooting](#monitoring-and-troubleshooting)
-10. [Clean up](#clean-up)
-11. [Design decisions](#design-decisions)
+7. [Deployment results](#deployment-results)
+8. [Run the unit tests](#run-the-unit-tests)
+9. [Configuration](#configuration)
+10. [Monitoring and troubleshooting](#monitoring-and-troubleshooting)
+11. [Clean up](#clean-up)
+12. [Design decisions](#design-decisions)
 
 ---
 
@@ -43,7 +44,7 @@ flowchart LR
         C -- otherwise --> KO([ResizeFailed<br/>Fail])
     end
 
-    T -- invoke --> L[Lambda<br/>resize-image<br/>Python 3.12 + Pillow layer]
+    T -- invoke --> L[Lambda<br/>resize-image<br/>Python 3.13 + Pillow layer]
     L -- GetObject --> S3O
     L -- PutObject thumbnails/... --> S3R[(S3<br/>resized bucket)]
     L -. logs .-> CW[CloudWatch Logs]
@@ -120,9 +121,11 @@ Plain-text version (from the assignment brief):
 - An **AWS account** with permission to create S3, Lambda, Step Functions, API Gateway, EventBridge, IAM and CloudWatch resources
 - **AWS CLI v2**, configured with `aws configure`
 - **AWS SAM CLI** ([install guide](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html))
-- **Python 3.12**
+- **Python 3.13**
 - *(Optional)* **Docker**, only if you want to build with `--use-container`
 - **Git**
+
+> **Tip:** Nothing to install? Open **AWS CloudShell** in the AWS Console. It already includes the AWS CLI, SAM CLI, Python 3.13 and Git, and it uses your console credentials. This project was deployed that way.
 
 Check your setup:
 
@@ -264,6 +267,46 @@ The Lambda accepts any of these inputs, so it can be tested from the Step Functi
 ```
 
 EventBridge `Object Created` events and classic S3 notifications are handled automatically. For safety, the function only reads from the originals bucket.
+
+---
+
+## Deployment results
+
+The stack was deployed from **AWS CloudShell** to `ca-central-1` with `sam build` and `sam deploy`, then tested end to end.
+
+| Test | Trigger | Result |
+|---|---|---|
+| Upload `samples/sample.jpg` (1600×1200, 123 KB) | S3 → EventBridge | ✅ Succeeded: `thumbnails/sample-thumb.jpg` (128×96, 3.3 KB) |
+| `POST /resize {"key": "sample.jpg"}` | API Gateway | ✅ Succeeded |
+| `POST /resize {"key": "does-not-exist.jpg"}` | API Gateway | ❌ Failed as expected, through the Choice state to `ResizeFailed` |
+
+**Stack deployed (15 resources)**
+
+![CloudFormation stack](docs/screenshots/cloudformation-stack.jpg)
+
+**`sam deploy` outputs**
+
+![Deploy outputs](docs/screenshots/deploy-outputs.jpg)
+
+**End-to-end test: upload, thumbnail created, API call**
+
+![End-to-end test](docs/screenshots/end-to-end-test.jpg)
+
+**Executions (two succeeded, one failed) and thumbnail size check**
+
+![Executions](docs/screenshots/executions-cli.jpg)
+
+**Successful execution: Task → Choice → Succeed**
+
+![Execution succeeded](docs/screenshots/execution-succeeded.jpg)
+
+**Failed execution: Task → Choice → Fail**
+
+![Execution failed](docs/screenshots/execution-failed.jpg)
+
+**Thumbnail in the resized bucket**
+
+![S3 thumbnail](docs/screenshots/s3-thumbnail.jpg)
 
 ---
 

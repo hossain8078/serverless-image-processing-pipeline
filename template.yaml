@@ -15,7 +15,7 @@ Parameters:
 
 Globals:
   Function:
-    Runtime: python3.12
+    Runtime: python3.13
     Architectures:
       - x86_64
     Timeout: 30
@@ -61,13 +61,13 @@ Resources:
     Type: AWS::Serverless::LayerVersion
     Properties:
       LayerName: !Sub "${AWS::StackName}-pillow"
-      Description: Pillow imaging library for Python 3.12
+      Description: Pillow imaging library for Python 3.13
       ContentUri: layers/pillow/
       CompatibleRuntimes:
-        - python3.12
+        - python3.13
       RetentionPolicy: Delete
     Metadata:
-      BuildMethod: python3.12
+      BuildMethod: python3.13
 
   ResizeImageFunction:
     Type: AWS::Serverless::Function
