@@ -5,7 +5,8 @@ A serverless AWS application that automatically turns uploaded images into thumb
 When an image lands in the **originals** S3 bucket, or a client calls the **API Gateway** endpoint, an **AWS Step Functions** state machine invokes a **Lambda** function. The function resizes the image with **Pillow** and saves the thumbnail in a second **resized** S3 bucket. **CloudWatch** keeps the logs and execution history.
 
 > **Capstone Project:** Cloud Computing, Saskatchewan Polytechnic (Business Information Systems)<br>
-> **Author:** Md Alamgir Hossain
+> **Author:** Md Alamgir Hossain<br>
+> **Demo video:** [Watch on YouTube](https://www.youtube.com/watch?v=mnUfHY-X5wI)
 
 ---
 
@@ -307,6 +308,20 @@ The stack was deployed from **AWS CloudShell** to `ca-central-1` with `sam build
 **Thumbnail in the resized bucket**
 
 ![S3 thumbnail](docs/screenshots/s3-thumbnail.jpg)
+
+### Test evidence
+
+Evidence from the live run is in [`docs/results/`](docs/results). The demo video is on [YouTube](https://www.youtube.com/watch?v=mnUfHY-X5wI).
+
+| # | Evidence | What it proves |
+|---|---|---|
+| 1 | [Unit tests](docs/results/01-unit-tests-18-passed.png) | All 18 unit tests pass |
+| 2 | [Executions started by upload](docs/results/02-executions-started-by-upload.jpg) | Uploading 3 images started 3 runs automatically, all Succeeded |
+| 3 | [Successful execution output](docs/results/03-execution-succeeded-output.jpg) | Task → Choice → Succeed; Lambda returned a 128×96 thumbnail |
+| 4 | [Thumbnails in the resized bucket](docs/results/04-thumbnails-in-resized-bucket.jpg) | Each thumbnail is stored in the second bucket (2.5–4.2 KB) |
+| 5 | [API trigger](docs/results/05-api-trigger-success-and-failure.jpg) | `POST /resize` succeeded for a real image and failed for a missing one |
+| 6 | [Failed execution](docs/results/06-execution-failed-choice-state.jpg) | The Choice state routes a FAILED result to the Fail state |
+| 7 | [Original vs thumbnail sizes](docs/results/07-original-vs-thumbnail-sizes.jpg) | Every original was reduced to 128 px on its longest side |
 
 ---
 
