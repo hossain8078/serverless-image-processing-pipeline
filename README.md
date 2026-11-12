@@ -8,7 +8,7 @@ When an image lands in the **originals** S3 bucket, or a client calls the **API 
 > **Author:** Md Alamgir Hossain<br>
 > **Demo video:** [Watch on YouTube](https://www.youtube.com/watch?v=mnUfHY-X5wI)<br>
 > **User manual:** [Step-by-step guide with screenshots (PDF)](docs/User_Manual.pdf)
-
+[![Architecture diagram of hossain8078/serverless-image-processing-pipeline](https://gitdiagram.com/hossain8078/serverless-image-processing-pipeline/diagram.png)](https://gitdiagram.com/hossain8078/serverless-image-processing-pipeline?utm_source=readme&utm_medium=picture)
 ---
 
 ## Table of contents
